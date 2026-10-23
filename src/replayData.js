@@ -1,5 +1,6 @@
 // 과거 예측 결과 파일 전용. 벽시계 신선도 검사 및 실물 제어와 분리합니다.
-const numeric = value => value === null || (typeof value === 'number' && Number.isFinite(value) && value >= 0);
+const numeric = value => value === null || (typeof value === 'number' && Number.isFinite(value));
+const concentration = value => numeric(value) && (value === null || value >= 0);
 const identifier = value => typeof value === 'string' && value.trim().length > 0 && value.length <= 120;
 const instant = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$/.test(value) ? Date.parse(value) : NaN;
 export const recordKey = r => `${r.observed_at}|${r.target_at}`;
@@ -27,7 +28,9 @@ export function validateReplay(input) {
     if (!Number.isFinite(observed) || !Number.isFinite(target) || Math.abs(target - observed - input.horizon_minutes * 60000) > 1)
       fail(`${row}행 시간대/예측 대상 시각`);
     r.observed_at = new Date(observed).toISOString(); r.target_at = new Date(target).toISOString();
-    for (const field of ['current', 'prediction', 'lower', 'upper', 'actual']) if (!numeric(r[field])) fail(`${row}행 ${field}: 숫자 또는 null 필요`);
+    for (const field of ['current', 'actual']) if (!concentration(r[field])) fail(`${row}행 ${field}: 비음수 유한 수 또는 null 필요`);
+    // Preserve raw model outputs, including negative estimates and interval bounds.
+    for (const field of ['prediction', 'lower', 'upper']) if (!numeric(r[field])) fail(`${row}행 ${field}: 유한 수 또는 null 필요`);
     if ((r.lower === null) !== (r.upper === null) || (r.lower !== null && r.lower > r.upper)) fail(`${row}행 예측구간 순서/누락`);
     if (r.lower !== null && (input.nominal_coverage === null || !identifier(input.interval_method))) fail('구간의 목표 포함률과 산출 방법 필요');
     const base = JSON.stringify([r.farm_id, r.observed_at, r.target_at]);

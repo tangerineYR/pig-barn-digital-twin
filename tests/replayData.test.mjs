@@ -48,3 +48,44 @@ test('동일 순간의 다른 시간대 표기는 정규화하여 중복 검출'
   raw.records.push({ ...raw.records[0], observed_at: '2024-01-01T09:00:00+09:00', target_at: '2024-01-01T09:30:00+09:00' });
   assert.throws(() => validateReplay(raw), /중복/);
 });
+
+// Invented contract values only, not a real model artifact.
+const modelOutputFixture = () => ({ ...makeReplayExample(), source: 'model_output', unit: 'ppm' });
+test('Replay model output preserves a negative lower bound', () => {
+  const raw = modelOutputFixture();
+  Object.assign(raw.records[0], { prediction: 4.2, lower: -1.7, upper: 10.1 });
+  const row = validateReplay(raw).records[0];
+  assert.equal(row.prediction, 4.2);
+  assert.equal(row.lower, -1.7);
+  assert.equal(row.upper, 10.1);
+});
+test('Replay preserves negative finite predictions and bounds without clamping', () => {
+  const raw = modelOutputFixture();
+  Object.assign(raw.records[0], { prediction: -2, lower: -3, upper: -1 });
+  const row = validateReplay(raw).records[0];
+  assert.equal(row.prediction, -2);
+  assert.equal(row.lower, -3);
+  assert.equal(row.upper, -1);
+  assert.deepEqual(raw.records[0], row);
+});
+test('Replay still rejects negative current observations', () => {
+  const raw = modelOutputFixture(); raw.records[0].current = -1;
+  assert.throws(() => validateReplay(raw), /current/);
+});
+test('Replay still rejects negative actual observations', () => {
+  const raw = modelOutputFixture(); raw.records[0].actual = -1;
+  assert.throws(() => validateReplay(raw), /actual/);
+});
+test('Replay rejects nonfinite predictions and interval bounds', () => {
+  for (const field of ['prediction', 'lower', 'upper']) {
+    for (const value of [NaN, Infinity, -Infinity]) {
+      const raw = modelOutputFixture(); raw.records[0][field] = value;
+      assert.throws(() => validateReplay(raw), new RegExp(field));
+    }
+  }
+});
+test('Replay still rejects reversed intervals when both bounds are negative', () => {
+  const raw = modelOutputFixture();
+  Object.assign(raw.records[0], { prediction: -2, lower: -1, upper: -3 });
+  assert.throws(() => validateReplay(raw), /예측구간 순서/);
+});
