@@ -1,9 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { simulateScenario, integrateIndex, frameAt } from '../src/simulation.js';
-import { SIMULATION as P } from '../src/config.js';
+import { SIMULATION as P, SCENARIOS } from '../src/config.js';
 import { createScenarioGrid, validateGrid } from '../src/heatmapData.js';
 const runs = Object.fromEntries(['C1', 'C2', 'C3', 'C4'].map(id => [id, simulateScenario(id)]));
+
+test('C3/C4 synthetic labels explicitly describe mock forecasts, not trained AI', () => {
+  for (const scenario of SCENARIOS.filter(s => ['C3', 'C4'].includes(s.id))) {
+    assert.match(scenario.title, /모의 예측 기반 선제 환기/);
+    assert.match(scenario.description, /모의 예측/);
+    assert.doesNotMatch(scenario.title + scenario.description, /AI|인공지능|학습 모델/);
+  }
+});
 
 test('공통 초기조건·오염원과 C1 무환기 축적', () => {
   for (const r of Object.values(runs)) {

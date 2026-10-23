@@ -34,7 +34,7 @@ Invoke-RestMethod -Method Post -Uri 'http://127.0.0.1:8000/api/v2/predict' -Cont
 | 저장 파일 | `PREDICTOR_MODE=file`, `PREDICTOR_FILE=examples/predictions-SYNTHETIC.json` | 파일에 기록된 모델/버전/조건과 동일 |
 | 실제 API | `PREDICTOR_MODE=http`, `PREDICTOR_URL`에 정확한 POST URL | 실제 모델 계약의 모델/버전 |
 
-HTTP의 선택 설정은 `PREDICTOR_TIMEOUT_SECONDS`(기본 5, 최대 60초), `PREDICTOR_TOKEN`(Bearer 인증)이다. 요청은 표준 JSON을 POST하고 표준 응답을 받는다. 파일의 상대 경로는 서버 실행 폴더 기준이다. 실제 API가 다른 규격이면 `predictors/providers.py`의 `HttpPredictor`에서 매핑한다.
+HTTP의 선택 설정은 `PREDICTOR_TIMEOUT_SECONDS`(기본 5, 최대 60초), `PREDICTOR_TOKEN`(Bearer 인증)이다. 요청은 표준 JSON을 POST하고 표준 응답을 받는다. 파일의 상대 경로는 서버 실행 폴더 기준이다. 실제 출력이 다른 규격이면 모델 측의 최소 export/adapter에서 공통 계약으로 변환한다. `HttpPredictor`와 public application 계약은 모델별 형식에 종속시키지 않는다.
 
 공급자와 모델 식별자는 별개다. File/HTTP로 Mock 결과를 전달해도 출처는 계속 `mock`이다. 학습 결과에는 `model_output`, 구간 UI 점검용 가짜 결과에는 `synthetic_fixture`를 사용한다.
 
@@ -65,10 +65,39 @@ CSV는 시간·NH₃ 두 열의 명시적 매핑을 지원한다. 부가 입력 
 
 입력 변수와 단위, 입력 창 길이/샘플 간격/전처리, 모델 ID/버전과 조건, API 요청·응답 예시 또는 저장된 출력 파일, 구간 산출법·목표 포함률을 받는다. 입력 창·결측 허용 규칙을 결정하는 일은 실제 모델 명세에 따른다. 연결 코드는 마련했지만 실제 학습모델 연결·성능 검증은 아직 수행하지 않았다.
 
+## 실제 출력 인계와 로컬 검증
+
+우선 경로는 **모델 측 export → `PredictionArchive` → `FilePredictor`**다. 집계 MAE/RMSE/R²만으로 시각별 예측을 복원할 수 없다. 시각별 출력 또는 안정적인 API가 없으면 실제 모델 연결 검증은 보류하며 Mock 결과로 성공을 대신하지 않는다.
+
+모델 담당자는 다음 정보를 확정해 함께 전달한다.
+
+| 출력/메타정보 | 공통 계약으로의 매핑 |
+| --- | --- |
+| 데이터 버전, 농장, 관측 대상(개별 센서/명시적 공간 평균) | `dataset_id`, `dataset_version`, `farm_id`, `subject_id` |
+| 실험 조건, 모델 ID와 재현 가능한 버전 | `condition_id`, `model_id`, `model_version` |
+| 예측 기준 시각과 시간대, 대상 시각 | `issued_at`, `target_at = issued_at + 30분`; 시간대 추측 금지 |
+| 최종 농도 예측과 단위 | `prediction`, `unit`; 변화량 출력은 모델 측에서 당시 현재값을 더해 농도로 변환 |
+| 실제 학습 결과의 출처 | `prediction_source=model_output`; 관측 출처는 별도로 지정 |
+| 하한·상한·목표 포함률·산출법 | `lower`, `upper`, `nominal_coverage`, `interval_method`; 미제공이면 모두 null |
+| 예측 생성 시각 | `generated_at`; 확인할 수 없으면 null |
+| 미래 실제값 | 예측 요청/보관 파일에 넣지 않고 별도 관측 파일의 대상 시각에 저장 |
+
+`confidence`, 잔차 표준편차 또는 단일 분위수 상한은 그 자체로 양측 prediction interval이 아니다. 구간 메타정보를 추정하거나 임의의 구간을 만들지 않는다. 입력 창·샘플 간격·전처리·평활 여부·센서 집계 및 단위도 모델 측 manifest에 명시해야 한다.
+
+실제 데이터와 출력은 저장소 밖 또는 Git에서 제외된 `data/`에만 둔다. 원자료·모델·실제 출력은 공개 승인을 추정해 commit하지 않는다. 공개 예시와 테스트는 합성 자료만 사용한다.
+
+1. 시각별 결과를 `PredictionArchive.model_validate_json`으로 검증한다. `actual`을 예측 파일에 포함하면 거부된다.
+2. 해당 파일로 File 공급자를 설정하고 UI의 데이터/농장/대상/조건/모델/버전을 맞춘다. 별도 관측 파일은 `twin-1` 형식으로 불러온다.
+3. 기준 시각까지의 이력만 요청에 들어가는지, 반환값의 원본 값·단위·출처·구간·+30분 대상 시각이 일치하는지 확인한다.
+4. Twin에서 대상 시각 직전까지 정답이 숨겨지고 도달 후 같은 시각의 관측만 공개되는지 확인한다. 잘못된 농장/대상/모델/버전/시각 요청은 오류여야 한다.
+5. 조건 비교가 필요하면 별도 `replay-1` 평가 파일을 사용한다. 한 파일에는 같은 대상·전처리·구간 정책을 가진 결과만 넣고, 다른 대상이나 구간 정책은 별도 파일로 분리한다.
+
+모델 검증 표의 R²는 `1 − SSE/SST`이며 MAE/RMSE와 동일한 공통 유효 시각을 사용한다. 표본 2개 미만 또는 정답이 일정하면 미표시하고 음수 점수는 유지한다. 예측구간 지표는 기존처럼 구간이 있는 공통 부분집합을 사용한다. Peak Recall·False Alarm/day·Lead Time은 사건 지속시간·병합·경보 임계값·경고 창·오경보/선행시간 규칙이 고정되기 전에는 구현하지 않는다.
+
 ## 검증 명령
 
 ```powershell
-.\backend\.venv\Scripts\python.exe -m unittest backend.test_app backend.test_predictors -v
+.\backend\.venv\Scripts\python.exe -m unittest backend.test_app backend.test_predictors backend.test_telemetry -v
 npm.cmd test
 ```
 

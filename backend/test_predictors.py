@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from backend.app import app
-from backend.schemas import PredictionRequest, PredictionResult, PredictionArchive
+from backend.schemas import PredictionRequest, PredictionResult, PredictionArchive, identity
 from backend.predictors import MockPredictor, FilePredictor, HttpPredictor, ProviderError
 from backend.data_sources import ObservationDataset, ObservationStore, load_csv
 from backend.data_sources.legacy_replay import convert_replay
@@ -99,6 +99,53 @@ class PredictorTests(unittest.TestCase):
             with self.subTest(handler=handler), self.assertRaises(ProviderError) as error:
                 HttpPredictor('http://test/predict', transport=httpx.MockTransport(handler)).predict(self.request)
             self.assertNotIn('secret', str(error.exception))
+
+    def test_model_output_archive_through_api_and_exact_identity(self):
+        # Invented contract fixture only; this is not a private model validation.
+        request = PredictionRequest(**{**request_data(), 'model_id': 'contract-test-model',
+                                       'model_version': 'test-1'})
+        row = PredictionResult(**identity(request), request_id='stored-request',
+                               prediction_source='model_output', status='ok',
+                               target_at=NOW + timedelta(minutes=30), generated_at=None,
+                               prediction=13.0, lower=-1.0, upper=15.0,
+                               nominal_coverage=.9, interval_method='test-only')
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / 'contract-fixture.json'
+            path.write_text(PredictionArchive(records=[row]).model_dump_json(), encoding='utf-8')
+            with patch.dict(os.environ, {'PREDICTOR_MODE': 'file', 'PREDICTOR_FILE': str(path)}):
+                client = TestClient(app)
+                body = request.model_dump(mode='json')
+                response = client.post('/api/v2/predict', json=body)
+                self.assertEqual(response.status_code, 200, response.text)
+                expected = row.model_copy(update={'request_id': request.request_id})
+                self.assertEqual(response.json(), expected.model_dump(mode='json'))
+                for field in ('farm_id', 'subject_id', 'model_id', 'model_version', 'condition_id'):
+                    with self.subTest(field=field):
+                        self.assertEqual(client.post('/api/v2/predict', json={**body, field: 'wrong'}).status_code, 502)
+                later = {**body, 'issued_at': (NOW + timedelta(minutes=1)).isoformat()}
+                self.assertEqual(client.post('/api/v2/predict', json=later).status_code, 502)
+        with self.assertRaises(ValidationError):
+            PredictionResult(**{**row.model_dump(), 'target_at': NOW})
+
+    def test_future_truth_is_excluded_before_provider_call(self):
+        metadata = {key: request_data()[key] for key in (
+            'dataset_id', 'dataset_version', 'farm_id', 'subject_id', 'observation_source', 'unit')}
+        store = ObservationStore(ObservationDataset(**metadata, records=[
+            dict(observed_at=NOW, nh3=12), dict(observed_at=NOW+timedelta(minutes=30), nh3=99)]))
+        request = store.request_at(issued_at=NOW, request_id='past-only', condition_id='baseline',
+                                   model_id='mock-persistence', model_version='1')
+        with patch('backend.app.get_predictor') as factory:
+            factory.return_value.predict.side_effect = MockPredictor().predict
+            client = TestClient(app)
+            body = request.model_dump(mode='json')
+            self.assertEqual(client.post('/api/v2/predict', json=body).status_code, 200)
+            sent = factory.return_value.predict.call_args.args[0]
+            self.assertEqual([r.nh3 for r in sent.history], [12])
+            self.assertNotIn('actual', sent.model_dump())
+            factory.return_value.predict.reset_mock()
+            body['history'].append(dict(observed_at=(NOW+timedelta(minutes=30)).isoformat(), nh3=99))
+            self.assertEqual(client.post('/api/v2/predict', json=body).status_code, 422)
+            factory.return_value.predict.assert_not_called()
 
     def test_mock_to_real_local_http_without_api_contract_change(self):
         class Handler(BaseHTTPRequestHandler):

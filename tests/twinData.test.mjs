@@ -18,6 +18,20 @@ test('모델 입력에는 해당 대상의 기준 시각 이하 이력만 포함
   assert.ok(!JSON.stringify(request).includes('actual'));
 });
 const makeResponse=q=>({...Object.fromEntries(Object.entries(q).filter(([k])=>k!=='history')),prediction_source:'mock',target_at:new Date(instant(q.issued_at)+1800000).toISOString(),generated_at:null,status:'ok',prediction:10,lower:null,upper:null,nominal_coverage:null,interval_method:null});
+test('model_output contract preserves provenance and rejects identity/time mismatches',()=>{
+  // Synthetic contract fixture, not a private trained model result.
+  const s=makeTwinExample().series[0];
+  const q=buildPredictionRequest(s,s.records[0].observed_at,{id:'contract-test-model',version:'test-1',condition:'test-condition',lookback:180});
+  const response={...makeResponse(q),prediction_source:'model_output',lower:-1,upper:20,nominal_coverage:.9,interval_method:'test-only'};
+  assert.deepEqual(validatePrediction(response,q),response);
+  for(const field of ['farm_id','subject_id','model_id','model_version','condition_id'])
+    assert.throws(()=>validatePrediction({...response,[field]:'wrong'},q));
+  for(const change of [{issued_at:response.target_at},{target_at:q.issued_at},{nominal_coverage:null},{interval_method:null}])
+    assert.throws(()=>validatePrediction({...response,...change},q));
+  assert.equal(q.history.length,1);
+  assert.ok(q.history.every(r=>instant(r.observed_at)<=instant(q.issued_at)));
+  assert.ok(!JSON.stringify(q).includes('actual'));
+});
 test('예측 응답의 시각·농장·단위·요청 ID가 다르면 거부한다',()=>{
   const s=makeTwinExample().series[0],q=buildPredictionRequest(s,s.records[0].observed_at,{id:'mock-persistence',version:'1',condition:'baseline',lookback:60});
   assert.equal(validatePrediction(makeResponse(q),q).prediction,10);

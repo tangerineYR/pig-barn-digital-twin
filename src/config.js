@@ -74,8 +74,8 @@ export const SIMULATION = {
 export const SCENARIOS = [
   { id: 'C1', title: '환기 OFF / 통제군', description: '오염원 탐지 후에도 환기 OFF → 실내 전역 위험도 급증' },
   { id: 'C2', title: '기존 사후 대응', description: '기본 환기를 유지하다 현재 지수가 시연 기준에 도달한 뒤 팬 HIGH' },
-  { id: 'C3', title: 'AI 선제 환기', description: '30분 후 위험 예측 → 팬 RPM 선제 증가 → 피크 억제' },
-  { id: 'C4', title: 'AI 선제 환기 + 배기 세정', description: '선제 환기 + 배출 공기 세정. C3 대비 실내 회복 우위는 미검증' },
+  { id: 'C3', title: '모의 예측 기반 선제 환기', description: '현재 발생 강도가 30분 유지된다는 모의 예측 → 팬 RPM 선제 증가 → 합성 피크 억제' },
+  { id: 'C4', title: '모의 예측 기반 선제 환기 + 배기 세정', description: '모의 예측 기반 선제 환기 + 배출 공기 세정. C3 대비 실내 회복 우위는 미검증' },
 ];
 
 export const DEVICE_POSITIONS = {

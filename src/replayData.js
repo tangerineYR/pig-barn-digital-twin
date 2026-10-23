@@ -62,9 +62,15 @@ export function replayMetrics(records, conditionIds = [...new Set(records.map(r 
   return groups.map(g => {
     const rows = g.rows.filter(r => common.has(recordKey(r)));
     const intervals = rows.filter(r => intervalCommon.has(recordKey(r)));
+    const sse = rows.reduce((s, r) => s + (r.prediction - r.actual) ** 2, 0);
+    const meanActual = rows.length ? rows.reduce((s, r) => s + r.actual, 0) / rows.length : null;
+    // Use the same paired point cohort as MAE/RMSE, not the interval subset.
+    const sst = rows.reduce((s, r) => s + (r.actual - meanActual) ** 2, 0);
+    const constantActual = rows.every(r => r.actual === rows[0].actual);
     return { id: g.id, candidates: g.rows.length, valid: g.rows.filter(r => r.prediction !== null && r.actual !== null).length, count: rows.length, intervalCount: intervals.length,
       mae: rows.length ? rows.reduce((s, r) => s + Math.abs(r.prediction - r.actual), 0) / rows.length : null,
-      rmse: rows.length ? Math.sqrt(rows.reduce((s, r) => s + (r.prediction - r.actual) ** 2, 0) / rows.length) : null,
+      rmse: rows.length ? Math.sqrt(sse / rows.length) : null,
+      r2: rows.length >= 2 && !constantActual && sst > 0 ? 1 - sse / sst : null,
       coverage: intervals.length ? intervals.filter(r => r.actual >= r.lower && r.actual <= r.upper).length / intervals.length : null,
       width: intervals.length ? intervals.reduce((s, r) => s + r.upper - r.lower, 0) / intervals.length : null };
   });
