@@ -21,7 +21,7 @@ for name in ('package.json', 'package-lock.json', 'index.html', 'tsconfig.json',
 if not (ROOT / 'dist/index.html').is_file():
     raise RuntimeError('Build the frontend first')
 manifest = {str(p.relative_to(ROOT)).replace('\\', '/'): hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(files)}
-archive = out / 'barn-digital-twin-2026-10-14-team.zip'
+archive = out / 'pig-barn-digital-twin-release.zip'
 with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED) as z:
     for path in sorted(files):
         z.write(path, 'barn-simulator/' + path.relative_to(ROOT).as_posix())

@@ -1,4 +1,4 @@
-name: Check simulator
+name: Test and Build
 on: [push, pull_request, workflow_dispatch]
 permissions:
   contents: read
@@ -22,3 +22,4 @@ jobs:
       - run: python -m unittest backend.test_app backend.test_predictors backend.test_telemetry
       - run: npm run build
       - run: python scripts/check_docs.py
+      - run: git diff --check

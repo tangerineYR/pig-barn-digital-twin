@@ -15,8 +15,7 @@ Digital Twin & Model Integration Layer**
 [![FastAPI](https://img.shields.io/badge/FastAPI-Prediction_API-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 
 [![Python](https://img.shields.io/badge/Python-3.12-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
-![Tests](https://img.shields.io/badge/Automated_Tests-76-4C8BF5?style=flat-square)
-![CI](https://img.shields.io/badge/GitHub_Actions-Passing-2088FF?style=flat-square&logo=githubactions&logoColor=white)
+[![CI](https://github.com/tangerineYR/pig-barn-digital-twin/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/tangerineYR/pig-barn-digital-twin/actions/workflows/ci.yml)
 ![Forecast](https://img.shields.io/badge/Forecast_Horizon-%2B30_min-444444?style=flat-square)
 
 <br/>
@@ -25,7 +24,7 @@ Digital Twin & Model Integration Layer**
 &nbsp;·&nbsp;
 [🔌 Prediction Contract](backend/PREDICTOR_GUIDE.md)
 &nbsp;·&nbsp;
-[🏢 Original Team Repository](https://github.com/aiot-little-pig/pig-barn-digital-twin)
+[🏢 Team Repository](https://github.com/aiot-little-pig/pig-barn-digital-twin)
 
 </div>
 
@@ -33,7 +32,7 @@ Digital Twin & Model Integration Layer**
 
 ## 📌 Overview
 
-**아기데지**는 실제 양돈장 IoT 시계열을 기반으로 **30분 후 NH₃ 농도와 고농도 위험을 예측하고, 예측의 불확실성을 함께 전달하여 관리자의 선제 대응을 지원하는 AIoT 팀 프로젝트**입니다.
+**아기데지**는 양돈장 IoT 시계열을 활용한 **30분 후 NH₃ 농도 예측, 예측 불확실성 평가 및 고농도 위험 대응 지원**을 목표로 한 AIoT 팀 프로젝트입니다. 이 저장소는 전체 시스템 중 예측 모델의 출력을 수신·검증하고, 시간 재생·모델 비교·3D 디지털트윈을 제공하는 애플리케이션 영역을 다룹니다.
 
 전체 프로젝트의 중심은 NH₃ forecasting과 reliability evaluation이며, 3D Digital Twin은 모델의 예측을 단순히 시각화하는 데서 끝나지 않고 **예측 당시 이용 가능했던 정보와 이후 실제 관측을 시간순으로 비교하고, 모델 조건과 Prediction Interval을 검토할 수 있는 application layer**로 설계했습니다.
 
@@ -101,7 +100,7 @@ flowchart LR
 
 ---
 
-# 🏗️ Architecture
+## 🏗️ Architecture
 
 ```mermaid
 flowchart TD
@@ -153,11 +152,11 @@ PredictionResult
 
 ---
 
-# 🚀 Engineering Highlights
+## 🚀 Engineering Highlights
 
-## 1. Model-independent Prediction Contract
+### 1. Model-independent Prediction Contract
 
-### Problem
+#### Problem
 
 팀의 forecasting model과 Digital Twin을 직접 결합하면 모델 형식이 바뀔 때마다 application도 함께 수정해야 합니다.
 
@@ -171,7 +170,7 @@ PredictionResult
 
 정도만 전달해서는 어떤 데이터와 모델에서 생성된 값인지 검증하기 어렵습니다.
 
-### Engineering Decision
+#### Engineering Decision
 
 Pydantic 기반의 명시적인 request / response contract를 정의했습니다.
 
@@ -203,7 +202,7 @@ target_at
 
 관계도 contract에서 강제합니다.
 
-### Provider Abstraction
+#### Provider Abstraction
 
 ```text
 Predictor
@@ -228,7 +227,7 @@ Frontend Error State
 
 ---
 
-## 2. 미래 정보를 보지 않는 Historical Replay
+### 2. 미래 정보를 보지 않는 Historical Replay
 
 Historical dataset은 파일 안에 이미 미래 actual value가 존재할 수 있습니다.
 
@@ -260,7 +259,7 @@ Prediction request에도 `issued_at` 이후 관측값이 들어가지 않으며,
 
 ---
 
-## 3. Fair Model Comparison with a Common Evaluation Cohort
+### 3. Fair Model Comparison with a Common Evaluation Cohort
 
 모델 A에는 prediction이 있지만 모델 B에는 없는 timestamp까지 각자 따로 평균을 계산하면 모델 간 비교가 공정하지 않을 수 있습니다.
 
@@ -299,7 +298,7 @@ R² = 1 - SSE / SST
 
 ---
 
-## 4. Prediction Interval을 원본 그대로 보존
+### 4. Prediction Interval을 원본 그대로 보존
 
 Forecasting model은 물리적으로 불가능한 음수 prediction이나 interval lower bound를 생성할 수도 있습니다.
 
@@ -333,7 +332,7 @@ upper      = 10.1 ppm
 
 ---
 
-## 5. IoT Telemetry Intake with Idempotent Persistence
+### 5. IoT Telemetry Intake with Idempotent Persistence
 
 현재 구현은 단순히 frontend에서 JSON fixture를 읽는 구조뿐 아니라 sensor gateway를 연결할 수 있는 local telemetry boundary를 제공합니다.
 
@@ -379,7 +378,7 @@ same timestamp + conflicting observation
 
 ---
 
-# 🐷 3D Digital Twin
+## 🐷 3D Digital Twin
 
 React Three Fiber와 Three.js로 돈사 내부를 구성하고 관측값과 prediction을 시간축과 공간 표현으로 연결합니다.
 
@@ -402,7 +401,7 @@ Digital Twin 화면에서는:
 
 ---
 
-# 🎛️ Synthetic Control Scenarios
+## 🎛️ Synthetic Control Scenarios
 
 실제 학습 model과 별개로 application 동작과 control logic을 확인하기 위한 deterministic synthetic simulator도 제공합니다.
 
@@ -427,7 +426,7 @@ C3/C4에서 사용하는 30분 forecast는 실제 trained AI output이 아니라
 
 ---
 
-# 🔌 Team Forecasting Model Integration
+## 🔌 Team Forecasting Model Integration
 
 팀의 forecasting model training / experiment implementation은 별도 private repository에 존재합니다.
 
@@ -465,25 +464,23 @@ prediction
 prediction interval metadata
 ```
 
-현재 보관된 team modeling artifacts에는 aggregate evaluation 결과는 존재하지만, public contract가 요구하는 **timestamp-level prediction output과 고정된 deployment metadata가 완전하게 남아 있지 않아 실제 historical model output의 end-to-end 연결을 완료했다고 주장하지 않습니다.**
+현재 공개 저장소에는 팀 예측 모델의 시각별 출력과 실제 모델 연결에 필요한 전체 배포 메타데이터가 포함되어 있지 않습니다. **File/HTTP 공급자 인터페이스와 합성 데이터 기반의 계약 검증은 구현·테스트했지만, 실제 팀 학습 모델과의 end-to-end 연결 및 예측 성능은 이 저장소에서 검증하지 않았습니다.**
 
 즉 현재 상태는:
 
 ```text
-Prediction Contract       ✅
-File / HTTP Boundary      ✅
-Synthetic Integration     ✅
-Contract Validation       ✅
-
-Actual Historical Team
-Model Output E2E          Not claimed
+Prediction contract           Implemented & tested
+File / HTTP provider          Implemented & tested
+Synthetic integration         Implemented & tested
+Contract validation           Implemented & tested
+Actual team model integration Not validated
 ```
 
 입니다.
 
 ---
 
-# 🧪 Tests & CI
+## 🧪 Tests & CI
 
 현재 repository는 **76개의 automated regression test**를 포함합니다.
 
@@ -523,11 +520,11 @@ npm run build
 documentation link check
 ```
 
-를 실행하며 현재 portfolio fork의 `main` workflow도 통과합니다.
+를 실행합니다. 최신 `\main` 브랜치의 GitHub Actions 실행은 성공했습니다.
 
 ---
 
-# 🛠️ Tech Stack
+## 🛠️ Tech Stack
 
 | Category | Technology |
 | --- | --- |
@@ -543,7 +540,7 @@ documentation link check
 
 ---
 
-# 📁 Project Structure
+## 📁 Project Structure
 
 ```text
 pig-barn-digital-twin/
@@ -587,7 +584,7 @@ pig-barn-digital-twin/
 
 ---
 
-# ▶️ Quick Start
+## ▶️ Quick Start
 
 현재 공개 실행 환경은 Windows / Python 3.12 / Node.js 22를 기준으로 검증했습니다.
 
@@ -613,15 +610,12 @@ http://127.0.0.1:4173
 
 ---
 
-# ✅ Validation
+## ✅ Validation
 
 ```powershell
 npm.cmd test
 
-.\backend\.venv\Scripts\python.exe -m unittest ^
-  backend.test_app ^
-  backend.test_predictors ^
-  backend.test_telemetry
+.\backend\.venv\Scripts\python.exe -m unittest backend.test_app backend.test_predictors backend.test_telemetry -v
 
 npm.cmd run build
 
@@ -630,43 +624,32 @@ npm.cmd run build
 
 ---
 
-# 🔄 Team Project vs Portfolio Refactoring
+## 🔧 Engineering Decisions & Validation
 
-이 repository는 원 팀 repository의 **personal portfolio fork**입니다.
+| 검토 항목 | 설계 결정 | 검증 방법 |
+|---|---|---|
+| 모델 독립성 | 공통 예측 요청·응답 계약을 통해 모델 구현과 애플리케이션을 분리	| Pydantic 계약 테스트 |
+| 예측 출처 및 식별 | 데이터셋·농장·관측 대상·모델·버전·단위·시각의 일치 여부 검증 | 예측 식별자 검증 테스트 |
+| 미래 정보 누수 방지 | 예측 기준 시각까지 관측된 데이터만 모델 입력에 포함 | Replay 및 요청 데이터 테스트 |
+| 모델 연동 | Mock·File·HTTP 방식의 예측 공급자 인터페이스 제공	| 공급자 통합 테스트 |
+| 오류 처리 | 외부 모델 연결 실패 시 Mock 예측으로 자동 대체하지 않고 오류를 명시적으로 반환 | HTTP 오류 처리 테스트 |
+| 공정한 모델 비교 | 동일한 유효 시각의 공통 표본으로 조건별 성능 비교 | 평가 지표 테스트 |
+| 예측구간 무결성 | 음수 예측값과 예측구간 경계를 임의로 보정하지 않고 원본 보존 | 예측구간 검증 테스트 |
+| 관측 데이터 무결성 | 동일 관측값의 중복 수신을 허용하고 충돌하는 값은 거부 | SQLite 저장·중복 검증 테스트 | 
+| 가상 제어 시나리오 | 결정론적 합성 시뮬레이션과 실제 AI 예측을 명확히 구분 | 시뮬레이션 불변조건 테스트 |
+| 실행 재현성 | 프론트엔드·백엔드 테스트와 빌드를 CI에서 자동 검증 | GitHub Actions |
 
-Original team repository:
+이 저장소는 [아기데지 팀 프로젝트](https://github.com/aiot-little-pig/pig-barn-digital-twin?utm_source=chatgpt.com)의 공개 Fork로, 전체 시스템 중 Digital Twin 및 예측 모델 연동을 위한 애플리케이션 영역을 다룹니다. NH₃ 예측 모델의 연구·학습 코드는 별도 팀 구성요소에서 관리합니다.
 
-```text
-aiot-little-pig/pig-barn-digital-twin
-```
-
-Portfolio fork:
-
-```text
-tangerineYR/pig-barn-digital-twin
-```
-
-팀 프로젝트의 원래 구현과 기여 관계를 유지하면서, 개인 fork에서는 프로젝트 종료 후 공개 포트폴리오 관점의 correctness validation을 추가했습니다.
-
-| Portfolio Refactoring | 내용 |
-| --- | --- |
-| Synthetic semantics | 실제 AI가 아닌 C3/C4를 `모의 예측 기반`으로 명확화 |
-| Evaluation | common cohort 기반 R² 추가 |
-| Contract audit | private model artifacts와 public contract gap 검증 |
-| Raw output policy | prediction / interval을 임의 clamp하지 않도록 통일 |
-| Regression tests | 62 → **76 automated tests** |
-| CI | personal fork GitHub Actions 검증 |
-| Documentation | 실제 model integration requirements 정리 |
-
-Private model code를 개인 repository로 가져오거나 본인의 구현으로 소급해 표현하지 않았습니다.
+현재 통합 테스트는 합성 데이터와 Mock 공급자를 기반으로 수행했으며, 실제 팀 학습 모델의 예측 성능이나 End-to-End 연동 완료를 입증하는 것은 아닙니다.
 
 ---
 
-# ⚠️ Scope & Limitations
+## ⚠️ Scope & Limitations
 
 **Actual Forecasting Model**
 
-Forecasting model training code는 별도 private team component이며 이 repository에 포함하지 않습니다. 현재 공개 repository에서는 실제 historical team model의 end-to-end 연결 완료를 주장하지 않습니다.
+Forecasting model training code는 별도 private team component이며 이 repository에 포함하지 않습니다. 현재 공개 저장소에서는 실제 팀 학습 모델과의 end-to-end 연결 및 예측 성능을 검증하지 않았습니다.
 
 **Synthetic Default**
 
@@ -694,7 +677,7 @@ Peak Recall, False Alarm/day, Lead Time은 team experiment 단계에서 운영 e
 
 ---
 
-# 👤 My Contribution
+## 👤 My Contribution
 
 이 프로젝트에서 저는 **Digital Twin 및 application integration 영역을 주도적으로 담당**했습니다.
 
@@ -728,24 +711,10 @@ Automated Tests & CI
 
 ---
 
-# 📚 Project Provenance
-
-Original team repository:
-
-https://github.com/aiot-little-pig/pig-barn-digital-twin
-
-Personal portfolio fork:
-
-https://github.com/tangerineYR/pig-barn-digital-twin
-
-Forecasting model implementation and source datasets are maintained separately and are not redistributed through this repository.
-
----
-
 <div align="center">
 
-**Forecasting Model → Prediction Contract → Replay → Evaluation → Digital Twin**
+**예측 모델 → 예측 계약 → 시간 재생 → 모델 평가 → 3D 디지털트윈**
 
-_Model performance is only useful when its provenance, timing, uncertainty, and limitations remain visible._
+_모델의 예측 결과는 출처와 시점, 불확실성과 한계를 함께 확인할 수 있을 때 비로소 의미 있게 활용할 수 있습니다._
 
 </div>

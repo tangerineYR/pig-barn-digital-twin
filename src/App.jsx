@@ -93,7 +93,7 @@ export default function App() {
   const seek = value => { setPlaying(false); setTime(Number(value)); };
 
   return <main className={`app-shell mode-${mode} ${hudVisible ? '' : 'hud-hidden'}`}>
-    <nav className="app-rail" aria-label="작업 공간"><div className="brand-mark">AD<span>아기데지</span></div>{[['twin','◈','디지털트윈'],['file','▥','모델 검증'],['local','⊞','제어 시나리오'],['api','⇄','API 모니터']].map(([id,icon,label])=><button key={id} aria-pressed={mode===id} onClick={()=>{setPlaying(false);setMode(id);}}><i>{icon}</i>{label}</button>)}<small>INTERNAL<br/>CLOSED LOOP</small></nav>
+    <nav className="app-rail" aria-label="작업 공간"><div className="brand-mark">AD<span>아기데지</span></div>{[['twin','◈','디지털트윈'],['file','▥','모델 검증'],['local','⊞','제어 시나리오'],['api','⇄','API 모니터']].map(([id,icon,label])=><button key={id} aria-pressed={mode===id} onClick={()=>{setPlaying(false);setMode(id);}}><i>{icon}</i>{label}</button>)}<small>VIRTUAL<br/>NO ACTUATION</small></nav>
     {mode !== 'file' && <button className="hud-toggle" aria-label="플로팅 패널 표시" aria-pressed={hudVisible} onClick={()=>setHudVisible(v=>!v)}>{hudVisible ? '접기' : '패널'}</button>}
     <header><div><p className="eyebrow">BARN INTELLIGENCE / 아기데지</p><h1>돈사 디지털트윈</h1></div><span className="badge">REPLAY WORKSPACE · 실물 제어 없음</span></header>
     <section className="data-source" aria-label="데이터 연결">
